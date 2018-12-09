@@ -1,0 +1,65 @@
+#include "sys.h"
+#include "delay.h"
+#include "usart.h"
+#include "led.h"
+
+void My_USART1_Init(void)
+{
+	GPIO_InitTypeDef GPIO_InitStruct;
+	USART_InitTypeDef USART_InitStruct;
+	NVIC_InitTypeDef NVIC_InitStruct;
+	
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA,ENABLE);	//使能相应的时钟；
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1,ENABLE);
+	
+	GPIO_InitStruct.GPIO_Pin = GPIO_Pin_9;					//GPIO初始化
+	GPIO_InitStruct.GPIO_Mode = GPIO_Mode_AF_PP;
+	GPIO_InitStruct.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_Init(GPIOA,&GPIO_InitStruct);
+	
+	GPIO_InitStruct.GPIO_Pin = GPIO_Pin_10;
+	GPIO_InitStruct.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+	GPIO_Init(GPIOA,&GPIO_InitStruct);
+	
+	USART_InitStruct.USART_BaudRate = 115200;				//串口1初始化
+	USART_InitStruct.USART_WordLength = USART_WordLength_8b;
+	USART_InitStruct.USART_StopBits = USART_StopBits_1;
+	USART_InitStruct.USART_Mode = USART_Mode_Tx|USART_Mode_Rx;
+	USART_InitStruct.USART_Parity = USART_Parity_No; 
+	USART_InitStruct.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
+	USART_Init(USART1,&USART_InitStruct);
+	
+	NVIC_InitStruct.NVIC_IRQChannel = USART1_IRQn;			//中断优先级设置
+	NVIC_InitStruct.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_InitStruct.NVIC_IRQChannelPreemptionPriority = 1;
+	NVIC_InitStruct.NVIC_IRQChannelSubPriority =1;
+	NVIC_Init(&NVIC_InitStruct);
+	
+	USART_Cmd(USART1,ENABLE);								//串口1使能
+	
+	USART_ITConfig(USART1,USART_IT_TXE,ENABLE);				//串口1开启发送中断，即发送中断使能
+}
+
+void USART1_IRQHandler(void)
+{
+	
+	if(USART_GetITStatus(USART1,USART_IT_TXE))				//判断是否是发送缓冲区空中断
+	{
+		u8 res = 'a';
+		USART_SendData(USART1,res);							//发送数据并点亮LED
+		LED0 = 0;
+		LED1 = 0;
+		delay_ms(500);
+		LED0 = 1;
+		LED1 = 1;
+		delay_ms(500);
+	}
+}
+
+int main(void)
+{
+	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);			//设置中断优先级分组
+	LED_Init();
+	delay_init();
+	My_USART1_Init();										//由于中断的类型是发送缓冲区空，所以在串口初始化函数中会立即产生中断直接跳转到中断服务函数
+} 
